@@ -107,7 +107,14 @@ async def ws_transcription(websocket: WebSocket, lesson_id: str):
         await send("session.ready", {"recording_id": recording.id, "lesson_id": lesson.id})
 
         asr = get_asr_provider()
-        final_seq = 0
+        # sequence 续接已有片段：同课堂重开录音会话时不会撞 UNIQUE(lesson_id, sequence)
+        final_seq = (
+            db.query(TranscriptSegment)
+            .filter(TranscriptSegment.lesson_id == lesson.id)
+            .order_by(TranscriptSegment.sequence.desc())
+            .first()
+        )
+        final_seq = final_seq.sequence if final_seq else 0
         while True:
             raw = await websocket.receive_text()
             try:
@@ -120,23 +127,27 @@ async def ws_transcription(websocket: WebSocket, lesson_id: str):
                 await send("heartbeat", {})
             elif mtype == "audio.chunk":
                 seq += 1
-                result = asr.transcribe_stream_chunk(session_id, b"", seq)
-                start_ms = seq * 8000
-                if result["is_final"]:
-                    seg = TranscriptSegment(
-                        lesson_id=lesson.id, recording_id=recording.id, sequence=final_seq + 1,
-                        start_ms=start_ms, end_ms=start_ms + 8000, text=result["text"],
-                        confidence=result.get("confidence"), is_final=False,
-                    )
-                    final_seq += 1
-                    db.add(seg)
-                    db.commit()
-                    await send("transcript.final",
-                               {"segment_id": seg.id, "sequence": seg.sequence, "start_ms": seg.start_ms,
-                                "end_ms": seg.end_ms, "text": seg.text, "confidence": seg.confidence})
-                else:
-                    await send("transcript.partial", {"sequence": seq, "start_ms": start_ms,
-                                                      "text": result["text"], "confidence": result.get("confidence")})
+                # 单分片失败不终止整个会话：记录错误并继续
+                try:
+                    result = asr.transcribe_stream_chunk(session_id, b"", seq)
+                    start_ms = seq * 8000
+                    if result["is_final"]:
+                        seg = TranscriptSegment(
+                            lesson_id=lesson.id, recording_id=recording.id, sequence=final_seq + 1,
+                            start_ms=start_ms, end_ms=start_ms + 8000, text=result["text"],
+                            confidence=result.get("confidence"), is_final=False,
+                        )
+                        db.add(seg)
+                        db.commit()
+                        final_seq += 1
+                        await send("transcript.final",
+                                   {"segment_id": seg.id, "sequence": seg.sequence, "start_ms": seg.start_ms,
+                                    "end_ms": seg.end_ms, "text": seg.text, "confidence": seg.confidence})
+                    else:
+                        await send("transcript.partial", {"sequence": seq, "start_ms": start_ms,
+                                                          "text": result["text"], "confidence": result.get("confidence")})
+                except Exception as chunk_exc:  # noqa: BLE001
+                    await send("error", {"code": "CHUNK_FAILED", "message": str(chunk_exc)[:200]})
             elif mtype == "session.end":
                 break
             else:

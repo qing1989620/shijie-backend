@@ -32,6 +32,7 @@ ignore = [
     "RUF012",  # class-level allowlist constants are fine
     "RUF001",  # Chinese product: fullwidth punctuation in strings is intended
     "RUF002",  # Chinese product: fullwidth punctuation in docstrings is intended
+    "RUF003",  # Chinese product: fullwidth punctuation in comments is intended
     "E731",    # small normalization lambdas are fine
 ]
 

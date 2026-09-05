@@ -127,7 +127,7 @@ async def ws_transcription(websocket: WebSocket, lesson_id: str):
                 await send("heartbeat", {})
             elif mtype == "audio.chunk":
                 seq += 1
-                # 客户端可携带 base64 音频数据(Mock 忽略；FunASR 等真实 Provider 使用)
+                # 客户端可携带 base64 音频数据(Mock 忽略, FunASR 等真实 Provider 使用)
                 audio_bytes = b""
                 data_b64 = (msg.get("payload") or {}).get("data")
                 if data_b64:

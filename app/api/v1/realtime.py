@@ -127,9 +127,19 @@ async def ws_transcription(websocket: WebSocket, lesson_id: str):
                 await send("heartbeat", {})
             elif mtype == "audio.chunk":
                 seq += 1
+                # 客户端可携带 base64 音频数据(Mock 忽略；FunASR 等真实 Provider 使用)
+                audio_bytes = b""
+                data_b64 = (msg.get("payload") or {}).get("data")
+                if data_b64:
+                    import base64 as _b64
+
+                    try:
+                        audio_bytes = _b64.b64decode(data_b64)
+                    except Exception:
+                        audio_bytes = b""
                 # 单分片失败不终止整个会话(记录错误并继续)
                 try:
-                    result = asr.transcribe_stream_chunk(session_id, b"", seq)
+                    result = asr.transcribe_stream_chunk(session_id, audio_bytes, seq)
                     start_ms = seq * 8000
                     if result["is_final"]:
                         seg = TranscriptSegment(

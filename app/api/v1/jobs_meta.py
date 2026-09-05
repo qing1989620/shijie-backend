@@ -46,7 +46,7 @@ def job_events(job_id: str, db: Session = Depends(get_db), user: User = Depends(
 
 @router.get("/meta/version", response_model=MetaVersionOut, operation_id="meta_version")
 def meta_version():
-    return MetaVersionOut(api_version="1", contract_version="1.0.0", app_env=settings.APP_ENV)
+    return MetaVersionOut(api_version="1", contract_version="1.0.0", app_env=settings.APP_ENV, asr_provider=settings.ASR_PROVIDER)
 
 
 @router.get("/health", response_model=HealthOut, operation_id="health")

@@ -426,6 +426,7 @@ class MetaVersionOut(BaseModel):
     api_version: str = "1"
     contract_version: str = "1.0.0"
     app_env: str
+    asr_provider: str = "mock"  # mock | funasr — 前端据此展示"模拟转写"提示
 
 
 class HealthOut(BaseModel):

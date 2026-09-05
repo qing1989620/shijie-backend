@@ -3877,6 +3877,11 @@
           "app_env": {
             "type": "string",
             "title": "App Env"
+          },
+          "asr_provider": {
+            "type": "string",
+            "title": "Asr Provider",
+            "default": "mock"
           }
         },
         "type": "object",

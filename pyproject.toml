@@ -1,0 +1,45 @@
+[project]
+name = "shijie-backend"
+version = "1.0.0"
+description = "Shijie learning platform backend — 课堂 → 练习 → 巩固 closed loop"
+requires-python = ">=3.12"
+dependencies = [
+    "fastapi>=0.115",
+    "uvicorn[standard]>=0.30",
+    "sqlalchemy>=2.0",
+    "alembic>=1.13",
+    "pydantic>=2.7",
+    "pydantic-settings>=2.3",
+    "pyjwt>=2.8",
+    "argon2-cffi>=23.1",
+    "python-multipart>=0.0.9",
+    "httpx>=0.27",
+    "email-validator>=2.1",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8", "ruff>=0.5"]
+
+[tool.ruff]
+line-length = 140
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B", "UP", "PERF", "RUF"]
+ignore = [
+    "B008",    # FastAPI Depends() in defaults is idiomatic
+    "BLE001",  # broad except at worker/middleware boundaries is intentional
+    "RUF012",  # class-level allowlist constants are fine
+    "RUF001",  # Chinese product: fullwidth punctuation in strings is intended
+    "RUF002",  # Chinese product: fullwidth punctuation in docstrings is intended
+    "E731",    # small normalization lambdas are fine
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["F811", "RUF059", "E501"]
+"scripts/*" = ["E402", "RUF100"]
+"migrations/versions/*" = ["E501", "I001", "F401"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+filterwarnings = ["ignore::DeprecationWarning"]

@@ -1,0 +1,67 @@
+asyncapi: 2.6.0
+info:
+  title: Shijie Realtime Transcription API
+  version: 1.0.0
+  description: >
+    课堂实时转写 WebSocket 契约。所有消息均为 JSON 信封：
+    {type, version, session_id, request_id?, timestamp, payload}。
+servers:
+  production:
+    url: wss://api.example.com
+    protocol: wss
+  development:
+    url: ws://localhost:8000
+    protocol: ws
+channels:
+  /ws/v1/lessons/{lesson_id}/transcription:
+    parameters:
+      lesson_id:
+        schema: { type: string }
+    subscribe:
+      summary: 服务端 → 客户端消息
+      operationId: transcriptionServerEvents
+      message:
+        oneOf:
+          - name: session.ready
+            payload: { type: object, properties: { recording_id: { type: string }, lesson_id: { type: string } } }
+          - name: transcript.partial
+            payload:
+              type: object
+              properties:
+                sequence: { type: integer }
+                start_ms: { type: integer }
+                text: { type: string }
+                confidence: { type: number }
+          - name: transcript.final
+            payload:
+              type: object
+              properties:
+                segment_id: { type: string }
+                sequence: { type: integer }
+                start_ms: { type: integer }
+                end_ms: { type: integer }
+                text: { type: string }
+                confidence: { type: number }
+          - name: session.closed
+            payload: { type: object, properties: { recording_id: { type: string }, segments: { type: integer } } }
+          - name: heartbeat
+            payload: { type: object }
+          - name: error
+            payload:
+              type: object
+              properties:
+                code: { type: string, enum: [UNAUTHORIZED, FORBIDDEN, NOT_FOUND, BAD_REQUEST, INTERNAL_ERROR] }
+                message: { type: string }
+    publish:
+      summary: 客户端 → 服务端消息
+      operationId: transcriptionClientEvents
+      message:
+        oneOf:
+          - name: session.start
+            payload: { type: object, properties: { ticket: { type: string } }, required: [ticket] }
+          - name: audio.chunk
+            payload: { type: object, properties: { data: { type: string, description: base64 音频分片 } } }
+          - name: session.end
+            payload: { type: object }
+          - name: heartbeat
+            payload: { type: object }

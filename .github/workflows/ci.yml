@@ -1,0 +1,43 @@
+name: backend-ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - name: Install dependencies
+        run: pip install -r requirements.lock
+      - name: Lint (ruff)
+        run: ruff check app tests scripts
+      - name: Tests
+        run: pytest tests/ -q
+      - name: OpenAPI contract drift check
+        run: |
+          python - <<'EOF'
+          import json, sys, urllib.request
+          sys.path.insert(0, ".")
+          from app.main import app
+          spec = json.dumps(app.openapi(), sort_keys=True, ensure_ascii=False)
+          with open("contracts/openapi.json", encoding="utf-8") as f:
+            frozen = json.dumps(json.load(f), sort_keys=True, ensure_ascii=False)
+          if spec != frozen:
+            print("CONTRACT DRIFT: run `python scripts/export_openapi.py` and commit")
+            sys.exit(1)
+          print("contract drift check: PASS")
+          EOF
+      - name: Migration check (empty database)
+        run: |
+          rm -f /tmp/mig.db
+          DATABASE_URL=sqlite:////tmp/mig.db alembic upgrade head

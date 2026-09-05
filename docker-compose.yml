@@ -1,0 +1,53 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: shijie
+      POSTGRES_PASSWORD: shijie
+      POSTGRES_DB: shijie
+    ports: ["5432:5432"]
+    volumes: [pgdata:/var/lib/postgresql/data]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U shijie"]
+      interval: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    ports: ["6379:6379"]
+
+  minio:
+    image: minio/minio:latest
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: shijie
+      MINIO_ROOT_PASSWORD: shijie123
+    ports: ["9000:9000", "9001:9001"]
+    volumes: [miniodata:/data]
+
+  backend:
+    build: .
+    environment:
+      DATABASE_URL: postgresql+psycopg://shijie:shijie@postgres:5432/shijie
+      REDIS_URL: redis://redis:6379/0
+      STORAGE_PROVIDER: s3
+      STORAGE_ENDPOINT: http://minio:9000
+      STORAGE_BUCKET: shijie
+      STORAGE_ACCESS_KEY: shijie
+      STORAGE_SECRET_KEY: shijie123
+      CORS_ORIGINS: http://localhost:5173
+    ports: ["8000:8000"]
+    depends_on:
+      postgres: { condition: service_healthy }
+      redis: { condition: service_started }
+
+  # 自托管 ASR 运行时（FunASR OpenAI-compatible；镜像较大，模型缓存见下方 volume）
+  # asr:
+  #   build: ./infra/asr
+  #   ports: ["8100:8100"]
+  #   volumes: [asrmodels:/root/.cache]
+
+volumes:
+  pgdata:
+  miniodata:
+  asrmodels:

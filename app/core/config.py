@@ -43,6 +43,7 @@ class Settings(BaseSettings):
     ASR_BASE_URL: str = "http://localhost:8100"
     ASR_MODEL: str = "paraformer-zh"
     ASR_API_KEY: str = ""  # openai_compatible 云识别（硅基流动/Groq 等）需要
+    ASR_TRUST_ENV: bool = False  # False=绕过系统代理直连(国内云 API 直连更稳)；代理上网可设 true
 
     OCR_PROVIDER: str = "mock"  # mock | paddleocr
 

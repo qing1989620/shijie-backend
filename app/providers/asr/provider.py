@@ -87,7 +87,8 @@ class FunASRProvider:
             headers=self._headers(),
             files=files,
             data={"model": self.model, "language": language},
-            timeout=120,
+            timeout=180,
+            trust_env=settings.ASR_TRUST_ENV,
         )
         resp.raise_for_status()
         data = resp.json()
@@ -101,7 +102,8 @@ class FunASRProvider:
             headers=self._headers(),
             files={"file": (f"chunk_{seq}.webm", chunk)},
             data={"model": self.model},
-            timeout=30,
+            timeout=60,
+            trust_env=settings.ASR_TRUST_ENV,
         )
         resp.raise_for_status()
         data = resp.json()
@@ -139,6 +141,7 @@ class OpenAICompatibleASRProvider:
             files={"file": ("audio.webm", audio.read())},
             data={"model": self.model},
             timeout=180,
+            trust_env=settings.ASR_TRUST_ENV,
         )
         resp.raise_for_status()
         data = resp.json()

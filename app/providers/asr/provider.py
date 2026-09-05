@@ -75,10 +75,16 @@ class FunASRProvider:
         self.base_url = settings.ASR_BASE_URL.rstrip("/")
         self.model = settings.ASR_MODEL
 
+    def _headers(self) -> dict:
+        if settings.ASR_API_KEY:
+            return {"Authorization": f"Bearer {settings.ASR_API_KEY}"}
+        return {}
+
     def transcribe(self, audio: BinaryIO, language: str = "zh") -> dict:
         files = {"file": ("audio.webm", audio.read())}
         resp = httpx.post(
             f"{self.base_url}/v1/audio/transcriptions",
+            headers=self._headers(),
             files=files,
             data={"model": self.model, "language": language},
             timeout=120,
@@ -88,8 +94,11 @@ class FunASRProvider:
         return {"segments": data.get("segments", []), "model": self.model}
 
     def transcribe_stream_chunk(self, session_id: str, chunk: bytes, seq: int) -> dict:
+        if not chunk:
+            return {"text": "", "is_final": False, "confidence": None}  # 空分片不消耗识别额度
         resp = httpx.post(
             f"{self.base_url}/v1/audio/transcriptions",
+            headers=self._headers(),
             files={"file": (f"chunk_{seq}.webm", chunk)},
             data={"model": self.model},
             timeout=30,
@@ -106,6 +115,47 @@ class FunASRProvider:
             return False
 
 
+class OpenAICompatibleASRProvider:
+    """任意 OpenAI 兼容云识别（硅基流动 SenseVoice / Groq Whisper / vLLM 网关等）。
+
+    云 API 按(请求|时长)计费/限额，因此：
+      - 实时区不做逐秒请求（transcribe_stream_chunk 返回 no-op），
+      - 真实转写走 finalize 的完整音频单次调用（前端在结束后上传完整录音）。
+    配置：ASR_BASE_URL（如 https://api.siliconflow.cn/v1）、ASR_API_KEY、ASR_MODEL
+    （如 FunAudioLLM/SenseVoiceSmall）。
+    """
+
+    name = "openai_compatible"
+
+    def __init__(self) -> None:
+        self.base_url = settings.ASR_BASE_URL.rstrip("/")
+        self.model = settings.ASR_MODEL
+        self.api_key = settings.ASR_API_KEY
+
+    def transcribe(self, audio: BinaryIO, language: str = "zh") -> dict:
+        resp = httpx.post(
+            f"{self.base_url}/audio/transcriptions",
+            headers={"Authorization": f"Bearer {self.api_key}"},
+            files={"file": ("audio.webm", audio.read())},
+            data={"model": self.model},
+            timeout=180,
+        )
+        resp.raise_for_status()
+        data = resp.json()
+        text = data.get("text", "")
+        return {
+            "segments": [{"start_ms": 0, "end_ms": None, "text": text, "confidence": None}],
+            "model": self.model,
+        }
+
+    def transcribe_stream_chunk(self, session_id: str, chunk: bytes, seq: int) -> dict:
+        # 云识别不做逐秒请求（额度/限流原因）；实时区留空，转写在 finalize 完成
+        return {"text": "", "is_final": False, "confidence": None}
+
+    def health(self) -> bool:
+        return True  # 云端可用性不作为本地 readiness 依据
+
+
 _asr: SpeechToTextProvider | None = None
 
 
@@ -114,6 +164,8 @@ def get_asr_provider() -> SpeechToTextProvider:
     if _asr is None:
         if settings.ASR_PROVIDER == "funasr":
             _asr = FunASRProvider()
+        elif settings.ASR_PROVIDER == "openai_compatible":
+            _asr = OpenAICompatibleASRProvider()
         else:
             _asr = MockASRProvider()
     return _asr

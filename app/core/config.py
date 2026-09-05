@@ -39,9 +39,10 @@ class Settings(BaseSettings):
     LLM_FALLBACK_MODELS: str = ""
     LLM_TIMEOUT_SECONDS: int = 60
 
-    ASR_PROVIDER: str = "mock"  # mock | funasr
+    ASR_PROVIDER: str = "mock"  # mock | funasr | openai_compatible
     ASR_BASE_URL: str = "http://localhost:8100"
     ASR_MODEL: str = "paraformer-zh"
+    ASR_API_KEY: str = ""  # openai_compatible 云识别（硅基流动/Groq 等）需要
 
     OCR_PROVIDER: str = "mock"  # mock | paddleocr
 
